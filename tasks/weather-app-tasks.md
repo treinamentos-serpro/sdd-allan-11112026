@@ -267,6 +267,7 @@ violações e execução no Pixel 7. As tarefas da fatia são independentes entr
 - **Critérios de aceite:**
   - [ ] `vite.config.ts` define `test.environment` como `jsdom` e `test.setupFiles` apontando para `tests/setup.ts`.
   - [ ] `tests/setup.ts` importa `@testing-library/jest-dom/vitest`.
+  - [ ] `test.include` em `vite.config.ts` cobre `tests/unit`, `tests/components` e `tests/integration` e não cobre `tests/e2e` (os `.spec.ts` do Playwright não podem rodar no Vitest).
   - [ ] Um teste de fumaça com `expect(true).toBe(true)` passa em `pnpm test` com código 0.
 - **Dependências:** T-01
 - **Arquivos prováveis:** `vite.config.ts`, `tests/setup.ts`
