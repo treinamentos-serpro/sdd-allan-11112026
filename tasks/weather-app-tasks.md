@@ -82,20 +82,168 @@ Convenções dos critérios de aceite:
 
 ---
 
+## Priorização, tamanho e fatias verticais
+
+Os IDs (T-NN) seguem as **camadas** de implementação e não mudam. A **ordem de execução** sugerida
+abaixo segue **fatias verticais**: cada fatia atravessa tipos → lógica → service → hook → UI → testes e
+termina em algo visível ou demonstrável. As dependências de cada tarefa continuam valendo, e todas
+já estão satisfeitas dentro da própria fatia ou em fatias anteriores.
+
+### Critérios
+
+A spec não define prioridades; os critérios abaixo são uma proposta e podem ser ajustados.
+
+| Prioridade | Significado |
+|---|---|
+| **P0** | Necessária para o fluxo principal funcionar (busca → seleção → clima atual e previsão; AC-01 a AC-05, AC-08, AC-09), incluindo as predecessoras por dependência. Sem ela o MVP da spec não existe. |
+| **P1** | Necessária para atender os demais requisitos e dar confiança ao MVP: erros e nova tentativa, testes de cada camada, E2E, acessibilidade, responsividade e validação final. |
+| **P2** | Evidência, verificação ou melhoria sem efeito no uso: logs, checklist manual e verificação de camadas. |
+
+| Tamanho | Significado (relativo, sem estimativa em horas) |
+|---|---|
+| **P** | 1 arquivo, até 4 critérios, lógica direta. |
+| **M** | 5 a 7 critérios ou lógica com armadilhas (arredondamento, fuso, abort, validação) ou 2 arquivos com comportamento. |
+| **G** | Orquestração ou validação extensa (8 critérios, timers, abort) ou E2E em vários navegadores com relógio simulado. |
+
+Totais: **P0 = 28**, **P1 = 26**, **P2 = 3**; **P = 26**, **M = 27**, **G = 4** (T-14, T-15, T-41, T-42).
+
+### Fatia 0 — Página no ar (fundação)
+
+**Resultado visível:** o app abre com o tema dark glassmorphism, foco visível e o rodapé de atribuição à Open-Meteo.
+**Pré-requisito:** decisão de T-01 — **tomada: substituir o código existente** (ver `plans/weather-app-plan.md`).
+Faltam só os dois `grep` de T-01, que passam a valer quando houver código em `src/`.
+
+| Ordem | ID | Título | Prioridade | Tamanho |
+|---|---|---|---|---|
+| 1 | T-01 | Decidir o destino do código existente divergente | P0 | M |
+| 2 | T-03 | Configurar Vitest e jsdom | P0 | P |
+| 3 | T-05 | Definir tipos de domínio e de estado | P0 | M |
+| 4 | T-17 | Criar a base visual (tema, foco e bootstrap) | P0 | M |
+| 5 | T-18 | Implementar `AttributionFooter` | P0 | P |
+
+### Fatia 1 — Buscar e escolher uma cidade (US-01, US-02, AC-01, AC-02, AC-08, AC-09)
+
+**Resultado visível:** digitar uma cidade, ver a validação dos termos inválidos e a lista com até 5 cidades
+ordenadas (dados reais da Open-Meteo no navegador). Ainda sem clima.
+
+| Ordem | ID | Título | Prioridade | Tamanho |
+|---|---|---|---|---|
+| 6 | T-06 | Implementar `validateSearchTerm` | P0 | M |
+| 7 | T-07 | Implementar a tabela de códigos WMO | P0 | P |
+| 8 | T-09 | Implementar utilitários de data e horário | P0 | M |
+| 9 | T-10 | Implementar `rankCities` | P0 | M |
+| 10 | T-11 | Implementar o reducer puro | P0 | M |
+| 11 | T-12 | Implementar `fetchJson` com erro tipado | P0 | M |
+| 12 | T-13 | Implementar o service de geocoding | P0 | M |
+| 13 | T-14 | Implementar o service de forecast | P0 | G |
+| 14 | T-15 | Implementar o hook `useWeatherApp` | P0 | G |
+| 15 | T-19 | Implementar `SearchForm` | P0 | M |
+| 16 | T-20 | Implementar `CityResults` | P0 | M |
+| 17 | T-21 | Implementar `StatusMessage` | P0 | M |
+| 18 | T-26 | Integrar a busca em `App` | P0 | M |
+| 19 | T-29 | Criar fixtures da Open-Meteo | P0 | M |
+| 20 | T-33 | Testar os services com fixtures | P0 | M |
+| 21 | T-30 | Testar `validateSearchTerm` | P1 | P |
+| 22 | T-32 | Testar `rankCities` e a tabela WMO | P1 | P |
+| 23 | T-34 | Testar o reducer | P1 | P |
+| 24 | T-35 | Testar o hook com fake timers | P1 | M |
+| 25 | T-36 | Testar `SearchForm` e `CityResults` | P1 | M |
+| 26 | T-37 | Testar `StatusMessage` | P1 | P |
+
+> O forecast (T-07, T-09, T-14) entra nesta fatia porque `useWeatherApp` (T-15) depende do service de
+> forecast, mesmo que a tela de clima só apareça na fatia 2.
+
+### Fatia 2 — Ver o clima da cidade (MVP completo: US-03 a US-05, AC-03 a AC-07)
+
+**Resultado visível:** selecionar uma cidade e ver clima atual, previsão de 5 dias, troca °C/°F sem
+nova requisição e aviso de virada do dia. **É o MVP da spec.**
+
+| Ordem | ID | Título | Prioridade | Tamanho |
+|---|---|---|---|---|
+| 27 | T-08 | Implementar conversão e formatação de temperatura | P0 | M |
+| 28 | T-16 | Implementar `useLocalDayChanged` | P0 | P |
+| 29 | T-22 | Implementar `CurrentWeatherCard` | P0 | M |
+| 30 | T-23 | Implementar `ForecastList` | P0 | P |
+| 31 | T-24 | Implementar `UnitToggle` | P0 | P |
+| 32 | T-25 | Implementar `DayChangedNotice` e ligá-lo à virada do dia | P0 | P |
+| 33 | T-27 | Integrar seleção e clima em `App` | P0 | M |
+| 34 | T-40 | Testar o fluxo de integração de `App` | P0 | M |
+| 35 | T-31 | Testar temperatura e arredondamento | P1 | P |
+| 36 | T-38 | Testar `CurrentWeatherCard` e `ForecastList` | P1 | P |
+| 37 | T-39 | Testar `UnitToggle` e `DayChangedNotice` | P1 | P |
+| 38 | T-02 | Adicionar `@axe-core/playwright` ao projeto | P1 | P |
+| 39 | T-04 | Configurar os projetos do Playwright | P1 | P |
+| 40 | T-41 | Testar o fluxo busca → seleção → clima no E2E | P1 | G |
+
+### Fatia 3 — Resiliência (US-08, AC-10, RNF-02, RNF-10)
+
+**Resultado visível:** erro e timeout de 15 s com "Tentar novamente", troca de cidade após erro e a virada
+do dia comprovadas no navegador.
+
+| Ordem | ID | Título | Prioridade | Tamanho |
+|---|---|---|---|---|
+| 41 | T-28 | Implementar "Tentar novamente" e troca de cidade após erro | P1 | M |
+| 42 | T-42 | Testar timeout, virada do dia, unidade e recarga no E2E | P1 | G |
+| 43 | T-43 | Implementar logs locais sem dados sensíveis | P2 | M |
+
+### Fatia 4 — Acessibilidade e responsividade (RNF-01, RNF-03, RNF-08)
+
+**Resultado visível:** uso só com teclado, sem rolagem horizontal de 320 a 1920 px, relatório do axe sem
+violações e execução no Pixel 7. As tarefas da fatia são independentes entre si e podem ser paralelizadas.
+
+| Ordem | ID | Título | Prioridade | Tamanho |
+|---|---|---|---|---|
+| 44 | T-44 | Revisar acessibilidade de `SearchForm` e `CityResults` | P1 | M |
+| 45 | T-45 | Revisar acessibilidade de `StatusMessage` e `App` | P1 | P |
+| 46 | T-46 | Revisar acessibilidade de `CurrentWeatherCard` e `ForecastList` | P1 | P |
+| 47 | T-47 | Revisar acessibilidade de `UnitToggle` e `DayChangedNotice` | P1 | P |
+| 48 | T-48 | Ajustar layout responsivo de `App` e `DayChangedNotice` | P1 | P |
+| 49 | T-49 | Ajustar layout responsivo de `SearchForm` e `CityResults` | P1 | P |
+| 50 | T-50 | Ajustar layout responsivo de `CurrentWeatherCard` e `ForecastList` | P1 | P |
+| 51 | T-51 | Ajustar layout responsivo de `UnitToggle` e `StatusMessage` | P1 | P |
+| 52 | T-52 | Testar responsividade e Pixel 7 no E2E | P1 | M |
+| 53 | T-53 | Testar acessibilidade automatizada com axe | P1 | P |
+
+### Fatia 5 — Fechamento e evidências (RNF-05, RNF-08, OQ-01, OQ-02)
+
+**Resultado visível:** relatório com os termos da Open-Meteo, a integração real, o pipeline completo
+(`pnpm lint`, `pnpm build`, `pnpm test`, `pnpm test:e2e`) e as regras de camadas verificadas.
+
+| Ordem | ID | Título | Prioridade | Tamanho |
+|---|---|---|---|---|
+| 54 | T-55 | Registrar a integração real e os termos de uso da Open-Meteo | P1 | M |
+| 55 | T-56 | Validar o pipeline completo e registrar evidências | P1 | M |
+| 56 | T-54 | Preparar o checklist manual de acessibilidade | P2 | P |
+| 57 | T-57 | Verificar as regras de dependência entre camadas | P2 | P |
+
+### Observações
+
+- **Acoplamento em T-27:** `App` só integra o clima depois de `UnitToggle` (T-24) e `DayChangedNotice`
+  (T-25), por isso T-16, T-24 e T-25 são P0 por dependência, e não por valor. Para mostrar o clima antes,
+  dividir T-27 (clima atual e previsão primeiro; unidade e aviso depois) e rebaixar T-16 e T-25 para P1.
+- **Testes por fatia:** esta sequência corrige o trade-off da ordenação por camadas, em que os testes
+  unitários ficavam depois da integração. Cada fatia entrega seus testes junto com o código.
+- **Termos da Open-Meteo (OQ-01):** a parte de T-55 que confirma os termos e a atribuição deve ser feita
+  antes da primeira execução manual contra a API real, no fim da fatia 1, e não só na fatia 5.
+- **Paralelismo:** na fatia 4, T-44 a T-51 só dependem de T-27 e podem ser feitas em paralelo.
+
+---
+
 ## Entrega 1 — Fundação e tipos
 
 ### T-01 — Decidir o destino do código existente divergente
 
 - **Tipo:** Infra
-- **Descrição:** O commit `Initial commit` contém `src/` e `tests/` com uma implementação anterior que
-  diverge da spec. No working tree esses arquivos aparecem removidos. Decidir se reaproveitar ou
-  substituir antes de qualquer código novo.
+- **Descrição:** O commit `Initial commit` continha `src/` e `tests/` com uma implementação anterior que
+  divergia da spec. **Decidido: substituir** (registrado em `plans/weather-app-plan.md`). O código antigo
+  foi removido no commit `entrega inicial` e não será restaurado. Resta confirmar, durante a fase Code,
+  que o código novo não reintroduz as divergências.
 - **Requisitos:** RF-06 (sem vento ou pressão), RF-08 (timeout de 15 s), RNF-01 (layout), Plano → Project Structure
 - **Critérios de aceite:**
-  - [ ] `plans/weather-app-plan.md` contém a linha `Decisão:` com `reaproveitar` ou `substituir` e a justificativa.
-  - [ ] Se a decisão for substituir: `git status` mostra a remoção do código antigo em commit separado do código novo.
-  - [ ] `grep -rnE "windSpeed|pressure|humidity|precipitation" src tests` retorna zero ocorrências [RF-06].
-  - [ ] `grep -rnE "10_?000" src` retorna zero ocorrências de timeout de 10 s [RF-08].
+  - [x] `plans/weather-app-plan.md` contém a linha `Decisão:` com `reaproveitar` ou `substituir` e a justificativa.
+  - [x] Se a decisão for substituir: a remoção do código antigo está em commit separado do código novo (`git show --stat 9bd0640` lista `src/` e `tests/` apenas como remoções; nenhum arquivo novo em `src/` ou `tests/`).
+  - [ ] Ao final da fatia 1, `grep -rnE "windSpeed|pressure|humidity|precipitation" src tests` retorna zero ocorrências [RF-06].
+  - [ ] Ao final da fatia 1, `grep -rnE "10_?000" src` retorna zero ocorrências de timeout de 10 s [RF-08].
 - **Dependências:** nenhuma
 - **Arquivos prováveis:** `plans/weather-app-plan.md`, `src/**`, `tests/**`
 
@@ -822,9 +970,9 @@ Convenções dos critérios de aceite:
 - **Critérios de aceite:**
   - [ ] O checklist tem um item para cada item de RNF-03: nomes acessíveis, teclado, foco visível, sem armadilha, contraste ≥ 4,5:1, resultados, carregamento, erros e mudança de unidade anunciados.
   - [ ] Cada item registra `Passou` ou `Falhou`, com data, navegador e versão exata, SO e dispositivo (RNF-08).
-  - [ ] O local do arquivo de evidências é definido na decisão de T-01 e registrado no plano.
+  - [ ] As evidências de T-54, T-55 e T-56 ficam em `plans/evidencias.md`, uma seção por tarefa, e o plano (Testing Strategy) cita esse arquivo.
 - **Dependências:** T-53
-- **Arquivos prováveis:** relatório de evidências (local definido em T-01)
+- **Arquivos prováveis:** `plans/evidencias.md`
 
 ### T-55 — Registrar a integração real e os termos de uso da Open-Meteo
 
@@ -837,7 +985,7 @@ Convenções dos critérios de aceite:
   - [ ] A latência de cada operação real é menor que 15000 ms e está registrada em milissegundos [RNF-02].
   - [ ] O registro contém navegador, versão exata, SO e dispositivo usados [RNF-08].
 - **Dependências:** T-42
-- **Arquivos prováveis:** relatório de evidências (local definido em T-01)
+- **Arquivos prováveis:** `plans/evidencias.md`
 
 ### T-56 — Validar o pipeline completo e registrar evidências
 
@@ -851,7 +999,7 @@ Convenções dos critérios de aceite:
   - [ ] `pnpm test:e2e` termina com código 0 nos projetos `chromium`, `firefox` e `Pixel 7` e o resultado é registrado [RNF-08].
   - [ ] Para cada `AC-01` a `AC-10`, existe pelo menos um teste passando com título iniciado por esse ID (verificado no relatório do Vitest e do Playwright) [AC-01 a AC-10].
 - **Dependências:** T-30, T-31, T-32, T-33, T-34, T-35, T-36, T-37, T-38, T-39, T-40, T-41, T-42, T-52, T-53
-- **Arquivos prováveis:** relatório de evidências (local definido em T-01)
+- **Arquivos prováveis:** `plans/evidencias.md`
 
 ### T-57 — Verificar as regras de dependência entre camadas
 

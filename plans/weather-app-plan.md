@@ -148,13 +148,19 @@ injeção de dependências por container e Context para estado. A árvore tem um
 hook de estado e um único fluxo de dados; uma camada a mais só adicionaria
 indireção.
 
-**Estado atual do repositório (decisão pendente para a fase Code):** o commit
-`Initial commit` contém `src/` e `tests/` com uma implementação anterior que
-diverge da spec: timeout de 10 s (spec: 15 s), campos de vento, pressão, umidade
-e probabilidade de precipitação (fora do escopo) e ausência de máquina de estados
-para descartar respostas tardias. No working tree esses arquivos aparecem
-removidos. O plano define os contratos abaixo como referência; reaproveitar ou
-substituir o código existente deve ser confirmado antes de iniciar a fase Code.
+**Estado atual do repositório:** o commit `Initial commit` continha `src/` e
+`tests/` com uma implementação anterior que divergia da spec: timeout de 10 s
+(spec: 15 s), campos de vento, pressão, umidade e probabilidade de precipitação
+(fora do escopo) e ausência de máquina de estados para descartar respostas
+tardias. O commit `entrega inicial` removeu esses arquivos do repositório.
+
+**Decisão:** substituir. O código anterior não será reaproveitado nem restaurado;
+a implementação nova parte dos contratos abaixo (fase Code, a partir de T-02).
+Justificativa: as divergências (timeout, campos fora do escopo e ausência de
+descarte de respostas tardias) atravessam tipos, service, hook e UI, então
+adaptar o código antigo exigiria reescrever quase tudo e ainda manter a
+rastreabilidade com a spec. A remoção já está no histórico, em commit separado
+de qualquer código novo.
 
 ## Data Model
 
@@ -683,7 +689,8 @@ disponibilidade real da Open-Meteo (spec, AC).
 - Cada critério de aceite tem pelo menos um teste nomeado com o ID (ex.: `AC-07: 1,25 °C vira 1,3 °C`).
 
 **Comandos de validação da fase Code:** `pnpm lint`, `pnpm build`, `pnpm test`,
-`pnpm test:e2e`. As evidências registram resultado (passou/falhou), não só o comando.
+`pnpm test:e2e`. As evidências registram resultado (passou/falhou), não só o comando, e ficam em
+`plans/evidencias.md`.
 
 ## Risks & Trade-offs
 
@@ -698,7 +705,7 @@ disponibilidade real da Open-Meteo (spec, AC).
 | Arredondamento com normalização de 12 dígitos | `toFixed(1)` | `toFixed` arredonda empates binários de forma inconsistente e não é "afastado de zero". Custo: uma função extra coberta por teste. |
 | `language=pt` no geocoding | Idioma padrão do provedor | Nomes de país em pt-BR. Nomes de cidades continuam na grafia da fonte (RNF-07). |
 | Latência ou contrato da API mudarem | Cache local ou fallback de dados | Spec proíbe cache e fallback. Mitigado por timeout de 15 s, erro recuperável e fixtures que detectam mudança de contrato. |
-| Divergência do código existente no HEAD | Reaproveitar o código atual | Decisão pendente antes da fase Code (ver Project Structure). |
+| Divergência do código existente | Reaproveitar o código atual | Decidido: substituir (ver Project Structure). Custo: reescrever tudo; benefício: aderência à spec sem remendos. |
 | Termos/atribuição da Open-Meteo | Ignorar por ser local | Pré-requisito antes de chamadas reais (OQ-01); atribuição visível em `AttributionFooter` (RNF-05). |
 | Acessibilidade e responsividade | Validação só visual | Risco de falha em leitor de tela e mobile; mitigado por checklist manual e Playwright nos viewports da spec. |
 | Vitest + Testing Library | Jest | Vitest já é a convenção do projeto e reaproveita a configuração do Vite; menos configuração de transformação. |
