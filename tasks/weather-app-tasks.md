@@ -253,9 +253,9 @@ violações e execução no Pixel 7. As tarefas da fatia são independentes entr
 - **Descrição:** O plano exige `@axe-core/playwright`, que ainda não está em `package.json`.
 - **Requisitos:** RNF-03 (verificação automatizada de acessibilidade)
 - **Critérios de aceite:**
-  - [ ] `package.json` lista `@axe-core/playwright` em `devDependencies`.
-  - [ ] `pnpm install --frozen-lockfile` termina com código 0.
-  - [ ] `pnpm-lock.yaml` contém a entrada `@axe-core/playwright` [RNF-03].
+  - [x] `package.json` lista `@axe-core/playwright` em `devDependencies`.
+  - [x] `pnpm install --frozen-lockfile` termina com código 0.
+  - [x] `pnpm-lock.yaml` contém a entrada `@axe-core/playwright` [RNF-03].
 - **Dependências:** T-01
 - **Arquivos prováveis:** `package.json`, `pnpm-lock.yaml`
 
@@ -353,7 +353,7 @@ violações e execução no Pixel 7. As tarefas da fatia são independentes entr
 - **Critérios de aceite:**
   - [ ] `localDateKey('America/Sao_Paulo', new Date('2026-11-12T02:30:00Z')) === '2026-11-11'` [AC-04].
   - [ ] O resultado não muda com `TZ=Asia/Tokyo` nem `TZ=UTC` (teste executado com as três variáveis) [RNF-07].
-  - [ ] `formatObservedAt('2026-11-11T18:45', 'America/Sao_Paulo') === '11/11/2026, 18:45'` [AC-03].
+  - [ ] `formatObservedAt('2026-11-11T18:45') === '11/11/2026, 18:45'`; `observedAt` já vem no fuso da cidade, então a função não recebe fuso nem converte [AC-03].
   - [ ] `formatQueriedAt` inclui o identificador do fuso da cidade na saída (ex.: `America/Sao_Paulo`) [RNF-07].
 - **Dependências:** T-05
 - **Arquivos prováveis:** `src/lib/dateTime.ts`
@@ -572,7 +572,7 @@ violações e execução no Pixel 7. As tarefas da fatia são independentes entr
 - **Descrição:** Alternância Celsius/Fahrenheit que despacha `UNIT_CHANGED`. Não gera request.
 - **Requisitos:** RF-05, RF-06, US-05, AC-05, AC-07
 - **Critérios de aceite:**
-  - [ ] Dois botões com nomes `Celsius` e `Fahrenheit`; o ativo tem `aria-pressed="true"` [RNF-03].
+  - [ ] Dois botões com nomes acessíveis `°C Celsius` e `°F Fahrenheit` (o nome começa com o texto visível, WCAG 2.5.3); o ativo tem `aria-pressed="true"` [RNF-03].
   - [ ] Clicar em `Fahrenheit` despacha `UNIT_CHANGED` com `unit: 'fahrenheit'` (spy) [AC-05].
   - [ ] Após a troca, nenhum `fetch` é chamado (contador igual a zero) [AC-05].
   - [ ] Com a unidade em Fahrenheit, `20 °C` é exibido como `68,0 °F` [AC-07].
