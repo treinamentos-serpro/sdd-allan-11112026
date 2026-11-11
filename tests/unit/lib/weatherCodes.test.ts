@@ -33,4 +33,9 @@ describe('weatherCodes', () => {
       expect(isKnownWeatherCode(code)).toBe(false);
     }
   });
+
+  it('não fornece descrição ou ícone para códigos desconhecidos', () => {
+    expect(weatherDescription[999]).toBeUndefined();
+    expect(weatherIcon[999]).toBeUndefined();
+  });
 });

@@ -16,6 +16,19 @@ const city: City = {
   longitude: -34.9,
 };
 
+function validForecast() {
+  return {
+    timezone: 'America/Recife',
+    current: { time: '2026-11-11T18:45', temperature_2m: 23.4, weather_code: 3 },
+    daily: {
+      time: ['2026-11-11', '2026-11-12', '2026-11-13', '2026-11-14', '2026-11-15'],
+      weather_code: [3, 61, 80, 3, 2],
+      temperature_2m_min: [20, 21, 19, 20, 22],
+      temperature_2m_max: [27, 28, 26, 27, 29],
+    },
+  };
+}
+
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
@@ -68,6 +81,15 @@ describe('searchCities', () => {
   it('retorna [] quando a resposta não tem results', async () => {
     fetchMock.mockResolvedValue({ ok: true, json: async () => ({}) });
     expect(await searchCities('xyzxyz')).toEqual([]);
+  });
+
+  it.each([
+    ['results nulo', { results: null }],
+    ['cidade sem país', { results: [{ id: 1, name: 'Recife', latitude: -8, longitude: -34 }] }],
+    ['coordenada fora da faixa', { results: [{ ...city, latitude: 91 }] }],
+  ])('rejeita estrutura inválida de geocoding: %s', async (_description, body) => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => body });
+    await expect(searchCities('Recife')).rejects.toThrow();
   });
 
   it('lança WeatherServiceError em resposta não-ok', async () => {
@@ -164,5 +186,123 @@ describe('getWeather', () => {
     });
 
     await expect(getWeather(city)).rejects.toBeInstanceOf(WeatherServiceError);
+  });
+
+  it('informa falha HTTP da consulta meteorológica', async () => {
+    fetchMock.mockResolvedValue({ ok: false, status: 503 });
+
+    await expect(getWeather(city)).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      status: 503,
+      message: 'Falha na consulta meteorológica (HTTP 503)',
+    });
+  });
+
+  it('informa falha de rede da consulta meteorológica', async () => {
+    fetchMock.mockRejectedValue(new TypeError('network failure'));
+
+    await expect(getWeather(city)).rejects.toMatchObject({
+      name: 'WeatherServiceError',
+      message: 'Falha de rede.',
+    });
+  });
+
+  it.each([
+    [
+      'temperatura atual ausente',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, current: { ...body.current, temperature_2m: undefined } };
+      },
+    ],
+    [
+      'temperatura atual não finita',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, current: { ...body.current, temperature_2m: Number.NaN } };
+      },
+    ],
+    [
+      'condição atual desconhecida',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, current: { ...body.current, weather_code: 999 } };
+      },
+    ],
+    [
+      'horário atual inválido',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, current: { ...body.current, time: 'inválido' } };
+      },
+    ],
+    [
+      'fuso ausente',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, timezone: undefined };
+      },
+    ],
+    [
+      'fuso inválido',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, timezone: 'Marte/Olympus' };
+      },
+    ],
+    [
+      'quatro dias',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, daily: { ...body.daily, time: body.daily.time.slice(0, 4) } };
+      },
+    ],
+    [
+      'mínima não finita',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, daily: { ...body.daily, temperature_2m_min: [20, 21, NaN, 20, 22] } };
+      },
+    ],
+    [
+      'mínima maior que máxima',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, daily: { ...body.daily, temperature_2m_min: [28, 21, 19, 20, 22] } };
+      },
+    ],
+    [
+      'condição diária desconhecida',
+      (body: ReturnType<typeof validForecast>) => {
+        return { ...body, daily: { ...body.daily, weather_code: [3, 61, 999, 3, 2] } };
+      },
+    ],
+    [
+      'datas repetidas',
+      (body: ReturnType<typeof validForecast>) => {
+        return {
+          ...body,
+          daily: {
+            ...body.daily,
+            time: ['2026-11-11', '2026-11-12', '2026-11-12', '2026-11-14', '2026-11-15'],
+          },
+        };
+      },
+    ],
+    [
+      'datas não consecutivas',
+      (body: ReturnType<typeof validForecast>) => {
+        return {
+          ...body,
+          daily: {
+            ...body.daily,
+            time: ['2026-11-11', '2026-11-12', '2026-11-14', '2026-11-15', '2026-11-16'],
+          },
+        };
+      },
+    ],
+  ])('RF-08: rejeita resposta meteorológica inválida: %s', async (_description, makeBody) => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => makeBody(validForecast()) });
+
+    await expect(getWeather(city)).rejects.toThrow();
+  });
+
+  it('AC-04: rejeita janela de previsão que não começa no dia local da consulta', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-11-12T03:30:00Z'));
+    fetchMock.mockResolvedValue({ ok: true, json: async () => validForecast() });
+
+    await expect(getWeather(city)).rejects.toThrow();
   });
 });

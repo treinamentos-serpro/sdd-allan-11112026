@@ -6,9 +6,15 @@ import {
 } from '../../../src/lib/temperature';
 
 describe('toDisplayTemperature', () => {
-  it('mantém °C e converte para °F com F = C × 9/5 + 32', () => {
-    expect(toDisplayTemperature(20, 'celsius')).toBe(20);
+  it('mantém valores em °C', () => {
+    expect(toDisplayTemperature(0, 'celsius')).toBe(0);
+    expect(toDisplayTemperature(100, 'celsius')).toBe(100);
     expect(toDisplayTemperature(20, 'fahrenheit')).toBe(68);
+  });
+
+  it('converte °C para °F com F = C × 9/5 + 32', () => {
+    expect(toDisplayTemperature(0, 'fahrenheit')).toBe(32);
+    expect(toDisplayTemperature(100, 'fahrenheit')).toBe(212);
     expect(toDisplayTemperature(-40, 'fahrenheit')).toBe(-40);
   });
 });
@@ -32,6 +38,11 @@ describe('roundHalfAwayFromZero', () => {
 describe('formatTemperature', () => {
   it('AC-03: exibe 20 °C com uma casa decimal e vírgula', () => {
     expect(formatTemperature(20, 'celsius')).toBe('20,0 °C');
+  });
+
+  it('formata valores em ambas as unidades com o símbolo correspondente', () => {
+    expect(formatTemperature(0, 'celsius')).toBe('0,0 °C');
+    expect(formatTemperature(0, 'fahrenheit')).toBe('32,0 °F');
   });
 
   it('AC-07: converte 20 °C para 68,0 °F', () => {

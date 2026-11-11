@@ -110,4 +110,50 @@ describe('App', () => {
     await user.click(screen.getByRole('button', { name: /Celsius/ }));
     expect(screen.getByText('20,0 °C')).toBeVisible();
   });
+
+  it('AC-07: converte todas as temperaturas e restaura os valores originais após alternar', async () => {
+    searchCitiesMock.mockResolvedValue([mockWeatherData.city]);
+    getWeatherMock.mockResolvedValue({
+      ...mockWeatherData,
+      current: { ...mockWeatherData.current, temperatureC: 20 },
+      days: [
+        { date: '2026-11-11', weatherCode: 0, minC: -1.25, maxC: 1.25 },
+        { date: '2026-11-12', weatherCode: 0, minC: 0, maxC: 10 },
+        { date: '2026-11-13', weatherCode: 0, minC: -40, maxC: 0 },
+        { date: '2026-11-14', weatherCode: 0, minC: 5, maxC: 20 },
+        { date: '2026-11-15', weatherCode: 0, minC: 1.35, maxC: 100 },
+      ],
+    });
+    const { user } = setup();
+
+    await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+    const current = await screen.findByRole('region', { name: 'Clima atual' });
+    const forecast = screen.getByRole('region', { name: 'Previsão para 5 dias' });
+    const items = within(forecast).getAllByRole('listitem');
+    expect(current).toHaveTextContent('20,0 °C');
+    expect(items[0]).toHaveTextContent('Mínima −1,3 °C');
+    expect(items[0]).toHaveTextContent('Máxima 1,3 °C');
+
+    await user.click(screen.getByRole('button', { name: /Fahrenheit/ }));
+    expect(current).toHaveTextContent('68,0 °F');
+    const expected = [
+      ['29,8 °F', '34,3 °F'],
+      ['32,0 °F', '50,0 °F'],
+      ['−40,0 °F', '32,0 °F'],
+      ['41,0 °F', '68,0 °F'],
+      ['34,4 °F', '212,0 °F'],
+    ];
+    items.forEach((item, index) => {
+      expect(item).toHaveTextContent(`Mínima ${expected[index][0]}`);
+      expect(item).toHaveTextContent(`Máxima ${expected[index][1]}`);
+    });
+
+    await user.click(screen.getByRole('button', { name: /Celsius/ }));
+    expect(current).toHaveTextContent('20,0 °C');
+    expect(items[0]).toHaveTextContent('Mínima −1,3 °C');
+    expect(items[0]).toHaveTextContent('Máxima 1,3 °C');
+    expect(items[4]).toHaveTextContent('Mínima 1,4 °C');
+    expect(searchCitiesMock).toHaveBeenCalledTimes(1);
+    expect(getWeatherMock).toHaveBeenCalledTimes(1);
+  });
 });

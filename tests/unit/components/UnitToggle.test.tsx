@@ -1,8 +1,23 @@
+import { useState } from 'react';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
+import CurrentWeather from '../../../src/components/CurrentWeather';
 import UnitToggle from '../../../src/components/UnitToggle';
+import { mockWeatherData } from '../../../src/mocks/mockWeatherData';
 import type { Unit } from '../../../src/types/weather';
+
+function UnitToggleWithCurrentWeather() {
+  const [unit, setUnit] = useState<Unit>('celsius');
+  const { city, current } = mockWeatherData;
+
+  return (
+    <>
+      <UnitToggle unit={unit} onChange={setUnit} />
+      <CurrentWeather city={city} current={{ ...current, temperatureC: 0 }} unit={unit} />
+    </>
+  );
+}
 
 function setup(unit: Unit = 'celsius') {
   const onChange = vi.fn();
@@ -56,6 +71,18 @@ describe('UnitToggle', () => {
 
     expect(onChange).toHaveBeenCalledTimes(1);
     expect(onChange).toHaveBeenCalledWith('fahrenheit');
+  });
+
+  it('AC-07: atualiza o clima de 0 °C para 32 °F ao selecionar Fahrenheit', async () => {
+    const user = userEvent.setup();
+    render(<UnitToggleWithCurrentWeather />);
+
+    const weather = screen.getByRole('region', { name: 'Clima atual' });
+    expect(weather).toHaveTextContent('0,0 °C');
+
+    await user.click(screen.getByRole('button', { name: /°F Fahrenheit/ }));
+
+    expect(weather).toHaveTextContent('32,0 °F');
   });
 
   it('não chama onChange ao clicar no botão que já está ativo', async () => {

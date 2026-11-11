@@ -111,4 +111,38 @@ describe('useWeather', () => {
     expect(getWeatherMock).toHaveBeenCalledWith(city);
     expect(result.current.status).toBe('success');
   });
+
+  it('AC-10: ignora uma resposta meteorológica antiga após sucesso de uma busca mais recente', async () => {
+    let resolveOldWeather!: (data: WeatherData) => void;
+    const newCity: City = { ...city, id: 2, name: 'Olinda' };
+    const newWeather: WeatherData = { ...weather, city: newCity };
+    searchCitiesMock.mockResolvedValueOnce([city]).mockResolvedValueOnce([newCity]);
+    getWeatherMock
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveOldWeather = resolve;
+          }),
+      )
+      .mockResolvedValueOnce(newWeather);
+    const { result } = renderHook(() => useWeather());
+
+    let oldSearch!: Promise<void>;
+    await act(async () => {
+      oldSearch = result.current.search('Recife');
+      await Promise.resolve();
+    });
+    expect(result.current.status).toBe('loading');
+
+    await act(async () => {
+      await result.current.search('Olinda');
+    });
+    expect(result.current).toMatchObject({ status: 'success', data: newWeather });
+
+    await act(async () => {
+      resolveOldWeather(weather);
+      await oldSearch;
+    });
+    expect(result.current).toMatchObject({ status: 'success', data: newWeather, query: 'Olinda' });
+  });
 });
