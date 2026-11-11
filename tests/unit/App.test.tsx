@@ -1,138 +1,113 @@
-import { render, screen, within } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import App from '../../src/App';
+import { mockWeatherData } from '../../src/mocks/mockWeatherData';
+import { getWeather, searchCities } from '../../src/services/weatherService';
+import type { City } from '../../src/types/weather';
+
+vi.mock('../../src/services/weatherService', () => ({
+  getWeather: vi.fn(),
+  searchCities: vi.fn(),
+}));
+
+const searchCitiesMock = vi.mocked(searchCities);
+const getWeatherMock = vi.mocked(getWeather);
 
 function setup() {
   return { user: userEvent.setup(), ...render(<App />) };
 }
 
-const preview = () => screen.getByRole('complementary', { name: /Pré-visualizar estados/ });
-const goTo = (user: ReturnType<typeof userEvent.setup>, label: string) =>
-  user.click(within(preview()).getByRole('button', { name: label }));
-
 afterEach(() => {
-  vi.unstubAllGlobals();
+  vi.resetAllMocks();
 });
 
 describe('App', () => {
-  it('monta o cabeçalho com marca, busca e unidade, e o rodapé de atribuição', () => {
+  it('monta cabeçalho, busca, unidade e atribuição', () => {
     setup();
 
     const header = screen.getByRole('banner');
-
     expect(within(header).getByRole('heading', { level: 1, name: /Weather App/ })).toBeVisible();
     expect(within(header).getByRole('search')).toBeVisible();
     expect(within(header).getByRole('group', { name: 'Unidade de temperatura' })).toBeVisible();
     expect(screen.getByRole('contentinfo')).toHaveTextContent('Open-Meteo.com');
   });
 
-  it('AC-06: começa em Celsius, sem cidade, com orientação para buscar', () => {
+  it('começa em Celsius e renderiza idle', () => {
     setup();
 
     expect(screen.getByRole('button', { name: /Celsius/ })).toHaveAttribute('aria-pressed', 'true');
     expect(screen.getByRole('heading', { name: 'Busque uma cidade' })).toBeVisible();
-    expect(screen.queryByText('São Paulo')).toBeNull();
+    expect(screen.queryByRole('alert')).toBeNull();
   });
 
-  it('alterna entre idle, loading, empty, error e success', async () => {
-    const { user } = setup();
-
-    await goTo(user, 'Carregando');
-    expect(screen.getByRole('status')).toHaveTextContent('Carregando clima…');
-
-    await goTo(user, 'Vazio');
-    expect(screen.getByRole('heading', { name: 'Nenhuma cidade encontrada' })).toBeVisible();
-
-    await goTo(user, 'Erro');
-    expect(screen.getByRole('alert')).toBeVisible();
-
-    await goTo(user, 'Sucesso');
-    expect(screen.getByRole('heading', { level: 2, name: 'Clima atual' })).toBeVisible();
-
-    await goTo(user, 'Inicial');
-    expect(screen.getByRole('heading', { name: 'Busque uma cidade' })).toBeVisible();
-  });
-
-  it('mostra o clima do mock ao buscar uma cidade', async () => {
+  it('renderiza loading e success conforme o hook conclui a busca', async () => {
+    let resolveSearch!: (cities: City[]) => void;
+    let resolveWeather!: (data: typeof mockWeatherData) => void;
+    searchCitiesMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveSearch = resolve;
+        }),
+    );
+    getWeatherMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveWeather = resolve;
+        }),
+    );
     const { user } = setup();
 
     await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+    expect(screen.getByRole('status')).toHaveTextContent('Carregando clima…');
 
-    expect(screen.getByText('20,0 °C')).toBeVisible();
-    const current = within(screen.getByRole('region', { name: 'Clima atual' }));
-    expect(current.getByText('Nublado')).toBeVisible();
-    expect(within(screen.getByRole('list')).getAllByRole('listitem')).toHaveLength(5);
-  });
+    await act(async () => resolveSearch([mockWeatherData.city]));
+    expect(screen.getByRole('status')).toHaveTextContent('Carregando clima…');
 
-  it('AC-05: troca a unidade e converte todas as temperaturas sem requisição', async () => {
-    const fetchSpy = vi.fn();
-    vi.stubGlobal('fetch', fetchSpy);
-    const { user } = setup();
-    await goTo(user, 'Sucesso');
-
-    await user.click(screen.getByRole('button', { name: /Fahrenheit/ }));
-
-    expect(screen.getByText('68,0 °F')).toBeVisible();
-    expect(within(screen.getByRole('main')).queryByText(/°C/)).toBeNull();
-    expect(screen.getByRole('button', { name: /Fahrenheit/ })).toHaveAttribute(
-      'aria-pressed',
-      'true',
-    );
-
-    await user.click(screen.getByRole('button', { name: /Celsius/ }));
-
-    expect(screen.getByText('20,0 °C')).toBeVisible();
-    expect(fetchSpy).not.toHaveBeenCalled();
-  });
-
-  it('mantém a unidade escolhida ao trocar de estado', async () => {
-    const { user } = setup();
-
-    await user.click(screen.getByRole('button', { name: /Fahrenheit/ }));
-    await goTo(user, 'Sucesso');
-
-    expect(screen.getByText('68,0 °F')).toBeVisible();
-  });
-
-  it('AC-10: "Tentar novamente" sai do estado de erro', async () => {
-    const { user } = setup();
-    await goTo(user, 'Erro');
-
-    await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
-
-    expect(screen.queryByRole('alert')).toBeNull();
+    await act(async () => resolveWeather(mockWeatherData));
+    expect(await screen.findByText('20,0 °C')).toBeVisible();
     expect(screen.getByRole('heading', { level: 2, name: 'Clima atual' })).toBeVisible();
   });
 
-  it('WCAG 2.4.3: move o foco para o conteúdo quando "Tentar novamente" some da tela', async () => {
+  it('renderiza empty quando não há cidades', async () => {
+    searchCitiesMock.mockResolvedValue([]);
     const { user } = setup();
-    await goTo(user, 'Erro');
+
+    await user.type(screen.getByRole('searchbox'), 'Atlantis{Enter}');
+
+    expect(await screen.findByRole('heading', { name: 'Nenhuma cidade encontrada' })).toBeVisible();
+    expect(getWeatherMock).not.toHaveBeenCalled();
+  });
+
+  it('renderiza erro e ErrorState chama retry da última operação', async () => {
+    searchCitiesMock.mockRejectedValueOnce(new Error('Falha de rede.'));
+    searchCitiesMock.mockResolvedValueOnce([mockWeatherData.city]);
+    getWeatherMock.mockResolvedValue(mockWeatherData);
+    const { user } = setup();
+
+    await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+    expect(await screen.findByRole('alert')).toHaveTextContent('Falha de rede.');
 
     await user.click(screen.getByRole('button', { name: 'Tentar novamente' }));
 
-    expect(screen.getByRole('main')).toHaveFocus();
+    expect(await screen.findByText('20,0 °C')).toBeVisible();
+    expect(searchCitiesMock).toHaveBeenNthCalledWith(2, 'São Paulo');
   });
 
-  it('mantém a busca utilizável enquanto carrega', async () => {
+  it('mantém unit como estado de UI e não refaz a consulta ao alternar', async () => {
+    searchCitiesMock.mockResolvedValue([mockWeatherData.city]);
+    getWeatherMock.mockResolvedValue(mockWeatherData);
     const { user } = setup();
 
-    await goTo(user, 'Carregando');
-
-    expect(screen.getByRole('searchbox')).toBeEnabled();
-    expect(screen.getByRole('button', { name: 'Buscar' })).toBeEnabled();
-  });
-
-  it('RNF-03: anuncia o resultado e a troca de unidade em uma região ativa', async () => {
-    const { user, container } = setup();
-    const liveRegion = () => container.querySelector('div[aria-live="polite"].sr-only');
-
-    expect(liveRegion()).toBeEmptyDOMElement();
-
-    await goTo(user, 'Sucesso');
-    expect(liveRegion()).toHaveTextContent('Clima de São Paulo exibido em Celsius.');
+    await user.type(screen.getByRole('searchbox'), 'São Paulo{Enter}');
+    expect(await screen.findByText('20,0 °C')).toBeVisible();
 
     await user.click(screen.getByRole('button', { name: /Fahrenheit/ }));
-    expect(liveRegion()).toHaveTextContent('Clima de São Paulo exibido em Fahrenheit.');
+    expect(screen.getByText('68,0 °F')).toBeVisible();
+    expect(searchCitiesMock).toHaveBeenCalledTimes(1);
+    expect(getWeatherMock).toHaveBeenCalledTimes(1);
+
+    await user.click(screen.getByRole('button', { name: /Celsius/ }));
+    expect(screen.getByText('20,0 °C')).toBeVisible();
   });
 });

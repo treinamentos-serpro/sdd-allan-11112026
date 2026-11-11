@@ -2,38 +2,35 @@ import { useRef, useState } from 'react';
 import AttributionFooter from './components/AttributionFooter';
 import CurrentWeather from './components/CurrentWeather';
 import ForecastList from './components/ForecastList';
-import PreviewStateSwitcher, { type PreviewState } from './components/PreviewStateSwitcher';
 import SearchBar from './components/SearchBar';
 import UnitToggle from './components/UnitToggle';
 import EmptyState from './components/states/EmptyState';
 import ErrorState from './components/states/ErrorState';
 import IdleState from './components/states/IdleState';
 import LoadingState from './components/states/LoadingState';
-import { mockWeatherData } from './mocks/mockWeatherData';
+import { useWeather } from './hooks/useWeather';
 import type { Unit } from './types/weather';
 
 export default function App() {
   // `unit` é só estado de UI: os dados ficam em °C e cada componente converte ao renderizar.
   const [unit, setUnit] = useState<Unit>('celsius');
-  // Com o mock, o estado é escolhido à mão. Será substituído pelo `view` de `useWeatherApp`.
-  const [view, setView] = useState<PreviewState>('idle');
+  const { status, data, error, search, retry: retryWeather } = useWeather();
   const mainRef = useRef<HTMLElement>(null);
-  const { city, current, days, timezone, queriedAt } = mockWeatherData;
 
   // Região ativa sempre montada: só ela anuncia o resultado e a troca de unidade (RNF-03).
   const announcement =
-    view === 'success'
-      ? `Clima de ${city.name} exibido em ${unit === 'celsius' ? 'Celsius' : 'Fahrenheit'}.`
+    status === 'success' && data
+      ? `Clima de ${data.city.name} exibido em ${unit === 'celsius' ? 'Celsius' : 'Fahrenheit'}.`
       : '';
 
   // O botão "Tentar novamente" sai da tela; sem mover o foco, ele iria para o <body>.
   function retry() {
-    setView('success');
+    void retryWeather();
     mainRef.current?.focus();
   }
 
   function renderContent() {
-    switch (view) {
+    switch (status) {
       case 'idle':
         return <IdleState />;
       case 'loading':
@@ -43,15 +40,23 @@ export default function App() {
       case 'error':
         return (
           <ErrorState
-            message="Não foi possível consultar o clima. Verifique sua conexão e tente novamente."
+            message={error ?? 'Não foi possível consultar o clima. Tente novamente.'}
             onRetry={retry}
           />
         );
       case 'success':
+        if (!data) {
+          return <ErrorState message="Dados meteorológicos indisponíveis." onRetry={retry} />;
+        }
         return (
           <div className="flex flex-col gap-8">
-            <CurrentWeather city={city} current={current} unit={unit} />
-            <ForecastList days={days} unit={unit} timezone={timezone} queriedAt={queriedAt} />
+            <CurrentWeather city={data.city} current={data.current} unit={unit} />
+            <ForecastList
+              days={data.days}
+              unit={unit}
+              timezone={data.timezone}
+              queriedAt={data.queriedAt}
+            />
           </div>
         );
     }
@@ -68,7 +73,7 @@ export default function App() {
             Weather App
           </h1>
           <div className="w-full md:flex-1">
-            <SearchBar onSearch={() => setView('success')} />
+            <SearchBar onSearch={(name) => void search(name)} />
           </div>
           <UnitToggle unit={unit} onChange={setUnit} />
         </div>
@@ -85,7 +90,6 @@ export default function App() {
         {announcement}
       </div>
 
-      {import.meta.env.DEV && <PreviewStateSwitcher value={view} onChange={setView} />}
       <AttributionFooter />
     </div>
   );
